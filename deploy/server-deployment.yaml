@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logai-server
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logai-server
+  template:
+    metadata:
+      labels:
+        app: logai-server
+    spec:
+      containers:
+      - name: server
+        image: logai-server:1.0.0
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: "0.5"
+            memory: 256Mi
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: data-storage
+        hostPath:
+          path: /Users/zjx/GolandProjects/logai/data
+          type: DirectoryOrCreate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logai-service
+  namespace: kube-system
+spec:
+  selector:
+    app: logai-server
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

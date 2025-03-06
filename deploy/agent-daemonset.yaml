@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logai-agent
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: logai-agent
+  template:
+    metadata:
+      labels:
+        app: logai-agent
+    spec:
+      serviceAccountName: logai-agent
+      hostNetwork: true
+      containers:
+      - name: agent
+        image: logai-agent:1.0.2
+        volumeMounts:
+        - name: token-volume
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log/pods
+          readOnly: true
+      volumes:
+      - name: token-volume
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+      - name: varlog
+        hostPath:
+          path: /var/log/pods
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: logai-agent
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: logai-agent-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logai-agent-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: logai-agent-role
+subjects:
+- kind: ServiceAccount
+  name: logai-agent
+  namespace: kube-system

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -11,14 +12,17 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/logai/pkg/collector"
+	"k8s.io/client-go/kubernetes"
 )
 
 // FileWatcher 文件监控结构体
-type FileWatcher struct {
-	FilePath    string
-	Interval    time.Duration
-	Offset      int64
-	LastModTime time.Time
+type KubernetesCollector struct {
+	clientset   *kubernetes.Clientset
+	logBasePath string
+	logCh       chan string
+	namespace   string
 }
 
 func main() {
@@ -28,24 +32,25 @@ func main() {
 	flag.Parse()
 
 	// 初始化文件监控器
-	watcher := &FileWatcher{
-		FilePath: "/Users/zjx/GolandProjects/logai/logfile_test/app.log",
-		Interval: 5 * time.Second,
+	collector, err := collector.NewKubernetesCollector("", "/var/log/pods", "kube-system")
+	if err != nil {
+		log.Fatalf("Kubernetes收集器初始化失败: %v", err)
 	}
 
-	if err := watcher.Init(); err != nil {
-		log.Fatalf("文件监控初始化失败: %v", err)
-	}
+	go func() {
+		if err := collector.Start(context.Background()); err != nil {
+			log.Fatalf("日志收集启动失败: %v", err)
+		}
+	}()
 
 	// 启动监控goroutine
 	go func() {
-		ticker := time.NewTicker(watcher.Interval)
+		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if err := watcher.Watch(); err != nil {
-				log.Printf("文件监控错误: %v", err)
-			}
+			// 触发收集器检查逻辑
+			log.Printf("执行定期Kubernetes日志收集")
 		}
 	}()
 
@@ -58,57 +63,9 @@ func main() {
 	log.Printf("LogAI Agent 正在关闭...")
 }
 
-func (f *FileWatcher) Init() error {
-	fileInfo, err := os.Stat(f.FilePath)
-	if err != nil {
-		return fmt.Errorf("文件不存在: %w", err)
-	}
-
-	f.LastModTime = fileInfo.ModTime()
-	f.Offset = fileInfo.Size()
-	return nil
-}
-
-func (f *FileWatcher) Watch() error {
-	fileInfo, err := os.Stat(f.FilePath)
-	if err != nil {
-		return fmt.Errorf("文件状态获取失败: %w", err)
-	}
-
-	if fileInfo.ModTime().Before(f.LastModTime) {
-		f.Offset = 0
-	}
-
-	// 初始化日志发送客户端
-	sender := NewLogSender("http://localhost:8080")
-
-	// 在Watch方法中调用发送逻辑
-	if fileInfo.Size() > f.Offset {
-		file, err := os.Open(f.FilePath)
-		if err != nil {
-			return fmt.Errorf("打开文件失败: %w", err)
-		}
-		defer file.Close()
-
-		_, err = file.Seek(f.Offset, io.SeekStart)
-		if err != nil {
-			return fmt.Errorf("文件定位失败: %w", err)
-		}
-
-		newContent, err := io.ReadAll(file)
-		if err != nil {
-			return fmt.Errorf("内容读取失败: %w", err)
-		}
-
-		log.Printf("采集到%d字节新日志，准备发送...", len(newContent))
-		f.Offset = fileInfo.Size()
-
-		if err := sender.SendLog(newContent); err != nil {
-			log.Printf("日志发送失败: %v", err)
-		}
-	}
-	return nil
-}
+// 删除Init方法
+// 删除FileWatcher结构体定义
+// 删除Watch方法
 
 // 新增HTTP客户端结构体
 type LogSender struct {
@@ -123,8 +80,11 @@ func NewLogSender(serverURL string) *LogSender {
 	}
 }
 
-func (s *LogSender) SendLog(data []byte) error {
+func (s *LogSender) SendLog(containerName string, data []byte) error {
 	req, err := http.NewRequest("POST", s.ServerURL+"/put?key="+time.Now().Format(time.RFC3339Nano), bytes.NewReader(data))
+	if err == nil {
+		req.Header.Set("X-Container-Name", containerName)
+	}
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %w", err)
 	}
