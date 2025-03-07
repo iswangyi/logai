@@ -4,6 +4,7 @@ BIN_DIR=bin
 APP_NAME=logai
 VERSION=1.0.0
 TARGET?=all
+REGISTRY_URL=registry.isigning.cn/base
 
 help:
 	@echo "可用命令:"
@@ -30,13 +31,15 @@ docker:
 
 docker-server:
 	@echo "构建Server镜像..."
-	docker build -t $(APP_NAME)-server:$(VERSION) \
+	docker build -t $(REGISTRY_URL)/$(APP_NAME)-server:$(VERSION) \
 		--build-arg TARGET=server -f deploy/Dockerfile.server .
+	docker push  $(REGISTRY_URL)/$(APP_NAME)-server:$(VERSION)
 
 docker-agent:
 	@echo "构建Agent镜像..."
-	docker build -t $(APP_NAME)-agent:$(VERSION) \
+	docker build -t $(REGISTRY_URL)/$(APP_NAME)-agent:$(VERSION) \
 		--build-arg TARGET=agent -f deploy/Dockerfile.agent .
+	docker push  $(REGISTRY_URL)/$(APP_NAME)-agent:$(VERSION) 
 
 deploy:
 	@if [ "$(filter-out all,$(TARGET))" = "server" ]; then \
@@ -64,7 +67,3 @@ run:
 	@echo "启动服务..."
 	@$(BIN_DIR)/server
 
-
-docker-push:
-	@echo "推送镜像到仓库..."
-	docker push $(APP_NAME):$(VERSION)

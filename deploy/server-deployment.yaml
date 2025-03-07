@@ -13,6 +13,7 @@ spec:
       labels:
         app: logai-server
     spec:
+      nodeName: dev-master-172.10.1.11
       containers:
       - name: server
         image: logai-server:1.0.0
@@ -28,22 +29,10 @@ spec:
         volumeMounts:
         - name: data-storage
           mountPath: /data
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
       volumes:
       - name: data-storage
         hostPath:
-          path: /Users/zjx/GolandProjects/logai/data
+          path: /home/zjx/logai-data
           type: DirectoryOrCreate
 
 ---

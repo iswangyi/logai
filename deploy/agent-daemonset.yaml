@@ -16,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: agent
-        image: logai-agent:1.0.2
+        image: registry.isigning.cn/base/logai-agent:1.0.0
         volumeMounts:
         - name: token-volume
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
