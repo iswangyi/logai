@@ -19,10 +19,11 @@ import (
 
 // FileWatcher 文件监控结构体
 type KubernetesCollector struct {
-	clientset   *kubernetes.Clientset
-	logBasePath string
-	logCh       chan string
-	namespace   string
+	clientset    *kubernetes.Clientset
+	logBasePath  string
+	logCh        chan string
+	namespace    string
+	fileNameList []string
 }
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	// 初始化文件监控器
-	collector, err := collector.NewKubernetesCollector("", "/var/log/pods", "kube-system")
+	collector, err := collector.NewKubernetesCollector("", "/var/log", "zjx")
 	if err != nil {
 		log.Fatalf("Kubernetes收集器初始化失败: %v", err)
 	}
@@ -54,6 +55,27 @@ func main() {
 		}
 	}()
 
+	//发送日志
+	go func() {
+		for ld := range collector.LogCh {
+			log.Printf("收集到新的日志文件: %s", ld.LogPath)
+			// 读取日志文件内容
+			logData, err := os.ReadFile(ld.LogPath)
+			if err != nil {
+				log.Printf("读取日志文件失败: %v", err)
+				continue
+			}
+
+			logSender := NewLogSender("http://log-server:8080")
+
+			// 发送日志数据到LogAI服务器
+			err = logSender.SendLog(ld, logData)
+			if err != nil {
+				log.Printf("发送日志失败: %v", err)
+			}
+		}
+	}()
+
 	// 等待退出信号
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -62,10 +84,6 @@ func main() {
 	<-sigCh
 	log.Printf("LogAI Agent 正在关闭...")
 }
-
-// 删除Init方法
-// 删除FileWatcher结构体定义
-// 删除Watch方法
 
 // 新增HTTP客户端结构体
 type LogSender struct {
@@ -80,10 +98,13 @@ func NewLogSender(serverURL string) *LogSender {
 	}
 }
 
-func (s *LogSender) SendLog(containerName string, data []byte) error {
+func (s *LogSender) SendLog(meta collector.LogMetaData, data []byte) error {
 	req, err := http.NewRequest("POST", s.ServerURL+"/put?key="+time.Now().Format(time.RFC3339Nano), bytes.NewReader(data))
 	if err == nil {
-		req.Header.Set("X-Container-Name", containerName)
+		req.Header.Set("X-Container-Name", meta.ContainerName)
+		req.Header.Set("X-Pod-Name", meta.PodName)
+		req.Header.Set("X-Namespace", meta.Namespace)
+		req.Header.Set("X-Log-Path", meta.LogPath)
 	}
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %w", err)

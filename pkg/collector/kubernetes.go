@@ -3,8 +3,8 @@ package collector
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -17,8 +17,16 @@ import (
 type KubernetesCollector struct {
 	clientset   *kubernetes.Clientset
 	logBasePath string
-	logCh       chan<- string
+	LogCh      chan LogMetaData
 	namespace   string
+	fileNameList []string
+}
+type LogMetaData struct {
+	ContainerName string
+	PodName       string
+	PodUID        string
+	Namespace     string
+	LogPath       string
 }
 
 func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace string) (*KubernetesCollector, error) {
@@ -38,11 +46,18 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 	if err != nil {
 		return nil, err
 	}
+	LogData := make(chan LogMetaData, 10)
+	// 日志文件目录
+	
+	fileNameList := make([]string, 0)
+
 
 	return &KubernetesCollector{
 		clientset:   clientset,
 		logBasePath: logBasePath,
 		namespace:   namespace,
+		fileNameList: fileNameList,
+		LogCh: LogData,
 	}, nil
 }
 
@@ -69,8 +84,27 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 	if pod.Namespace != k.namespace {
 		return
 	}
+
 	for _, container := range pod.Spec.Containers {
-		logPath := filepath.Join(k.logBasePath, "pods", string(pod.UID), container.Name)
-		k.logCh <- fmt.Sprintf("%s|%s", logPath, container.Name)
+		logPath := fmt.Sprintf("%s/%s_%s_%s%s%s", k.logBasePath,pod.Namespace,pod.Name,string(pod.UID),container.Name,"/","0.log")
+		// 检查日志文件是否存在,不存在跳过
+
+		_, err := os.Stat(logPath)
+		if err!= nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			fmt.Println("Error checking log file:", err)
+			continue
+		}
+		meta := LogMetaData{
+				ContainerName: container.Name,
+				PodName:       pod.Name,
+				PodUID:        string(pod.UID),
+				Namespace:     pod.Namespace,
+				LogPath:       logPath,
+			}
+		
+		k.LogCh <- meta
 	}
 }

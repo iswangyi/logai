@@ -41,8 +41,12 @@ func main() {
 
 	// 启动HTTP服务
 	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Query().Get("key")
-		log.Printf("收到PUT请求 | 路径: %s | 参数key: %s", r.URL.Path, key)
+		key := fmt.Sprintf("%s/%s/%s/%s", 
+			r.Header.Get("X-Namespace"),
+			r.Header.Get("X-Pod-Name"),
+			r.Header.Get("X-Container-Name"),
+			r.Header.Get("X-Log-Path"))
+		log.Printf("收到PUT请求 | 组合key: %s", key)
 		value, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "读取请求体失败", http.StatusBadRequest)
@@ -78,8 +82,12 @@ func main() {
 	})
 
 	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Query().Get("key")
-		log.Printf("收到GET请求 | key: %s", key)
+		key := fmt.Sprintf("%s/%s/%s/%s", 
+			r.Header.Get("X-Namespace"),
+			r.Header.Get("X-Pod-Name"),
+			r.Header.Get("X-Container-Name"),
+			r.Header.Get("X-Log-Path"))
+		log.Printf("收到GET请求 | 组合key: %s", key)
 		value, err := storageEngine.Get([]byte(key))
 		if err != nil {
 			log.Printf("数据查询失败 | key: %s | 错误: %+v", key, err)
@@ -88,6 +96,12 @@ func main() {
 		}
 		w.Write(value)
 	})
+// 修改GET和DELETE端点同样使用组合key
+// key := fmt.Sprintf("%s/%s/%s/%s", 
+// 	r.Header.Get("X-Namespace"),
+// 	r.Header.Get("X-Pod-Name"),
+// 	r.Header.Get("X-Container-Name"),
+// 	r.Header.Get("X-Log-Path"))
 
 	http.HandleFunc("/delete", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
