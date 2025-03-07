@@ -35,6 +35,14 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
+		if config != nil {
+			config.TLSClientConfig = rest.TLSClientConfig{
+				CAFile:   "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+				CertFile: "/var/run/secrets/kubernetes.io/serviceaccount/tls.crt",
+				KeyFile:  "/var/run/secrets/kubernetes.io/serviceaccount/tls.key",
+				Insecure: true,
+			}
+		}
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
