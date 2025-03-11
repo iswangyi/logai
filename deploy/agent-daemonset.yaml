@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: logai-agent
+  annotations:
+    kubernetes.io/service-account.name: logai-agent
+    automountServiceAccountToken: true
   namespace: kube-system
 spec:
   selector:
@@ -21,6 +24,10 @@ spec:
         - name: token-volume
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           readOnly: true
+        - name: ca-cert
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          subPath: ca.crt
+          readOnly: true
         - name: varlog
           mountPath: /var/log/pods
           readOnly: true
@@ -31,6 +38,12 @@ spec:
           - serviceAccountToken:
               path: token
               expirationSeconds: 3600
+      - name: ca-cert
+        secret:
+          secretName: ""
+          items:
+          - key: ca.crt
+            path: ca.crt
       - name: varlog
         hostPath:
           path: /var/log/pods
@@ -39,26 +52,43 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: logai-agent
+  annotations:
+    kubernetes.io/service-account.name: logai-agent
+    automountServiceAccountToken: true
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: logai-agent-role
+  name: logai-agent
+  annotations:
+    kubernetes.io/service-account.name: logai-agent
+    automountServiceAccountToken: true-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: logai-agent-role-binding
+  name: logai-agent
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: logai-agent-role
+  name: logai-agent
+  annotations:
+    kubernetes.io/service-account.name: logai-agent
+    automountServiceAccountToken: true-role
 subjects:
 - kind: ServiceAccount
   name: logai-agent
+  annotations:
+    kubernetes.io/service-account.name: logai-agent
+    automountServiceAccountToken: true
   namespace: kube-system

@@ -3,8 +3,8 @@ package collector
 import (
 	"context"
 	"fmt"
-	"time"
 	"os"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -15,10 +15,10 @@ import (
 )
 
 type KubernetesCollector struct {
-	clientset   *kubernetes.Clientset
-	logBasePath string
-	LogCh      chan LogMetaData
-	namespace   string
+	clientset    *kubernetes.Clientset
+	logBasePath  string
+	LogCh        chan LogMetaData
+	namespace    string
 	fileNameList []string
 }
 type LogMetaData struct {
@@ -35,8 +35,10 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
-		// 使用默认的InCluster配置
-		// 证书路径由client-go自动处理
+		if config != nil {
+			config.BearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+			config.TLSClientConfig.CAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+		}
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
@@ -50,16 +52,15 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 	}
 	LogData := make(chan LogMetaData, 10)
 	// 日志文件目录
-	
+
 	fileNameList := make([]string, 0)
 
-
 	return &KubernetesCollector{
-		clientset:   clientset,
-		logBasePath: logBasePath,
-		namespace:   namespace,
+		clientset:    clientset,
+		logBasePath:  logBasePath,
+		namespace:    namespace,
 		fileNameList: fileNameList,
-		LogCh: LogData,
+		LogCh:        LogData,
 	}, nil
 }
 
@@ -88,11 +89,11 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		logPath := fmt.Sprintf("%s/%s_%s_%s%s%s", k.logBasePath,pod.Namespace,pod.Name,string(pod.UID),container.Name,"/","0.log")
+		logPath := fmt.Sprintf("%s/%s_%s_%s%s%s", k.logBasePath, pod.Namespace, pod.Name, string(pod.UID), container.Name, "/", "0.log")
 		// 检查日志文件是否存在,不存在跳过
 
 		_, err := os.Stat(logPath)
-		if err!= nil {
+		if err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
@@ -100,13 +101,13 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 			continue
 		}
 		meta := LogMetaData{
-				ContainerName: container.Name,
-				PodName:       pod.Name,
-				PodUID:        string(pod.UID),
-				Namespace:     pod.Namespace,
-				LogPath:       logPath,
-			}
-		
+			ContainerName: container.Name,
+			PodName:       pod.Name,
+			PodUID:        string(pod.UID),
+			Namespace:     pod.Namespace,
+			LogPath:       logPath,
+		}
+
 		k.LogCh <- meta
 	}
 }
