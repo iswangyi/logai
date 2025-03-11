@@ -66,7 +66,7 @@ func main() {
 				continue
 			}
 
-			logSender := NewLogSender("http://log-server:8080")
+			logSender := NewLogSender("http://172.10.1.11:31774")
 
 			// 发送日志数据到LogAI服务器
 			err = logSender.SendLog(ld, logData)

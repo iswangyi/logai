@@ -24,8 +24,15 @@ spec:
         - name: varlog
           mountPath: /var/log/pods
           readOnly: true
+        - name: containerlog
+          mountPath: /var/lib/docker/containers
+          readOnly: true
       volumes:
       - name: varlog
         hostPath:
           path: /var/log/pods
+      - name: containerlog 
+        hostPath:
+          path: /var/lib/docker/containers 
+        
 
