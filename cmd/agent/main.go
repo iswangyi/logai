@@ -33,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	// 初始化文件监控器
-	collector, err := collector.NewKubernetesCollector("", "/var/log", "zjx")
+	collector, err := collector.NewKubernetesCollector("", "/var/log/pods", "zjx")
 	if err != nil {
 		log.Fatalf("Kubernetes收集器初始化失败: %v", err)
 	}
