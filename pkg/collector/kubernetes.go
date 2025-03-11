@@ -35,14 +35,8 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
-		if config != nil {
-			config.TLSClientConfig = rest.TLSClientConfig{
-				CAFile:   "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-				CertFile: "/var/run/secrets/kubernetes.io/serviceaccount/tls.crt",
-				KeyFile:  "/var/run/secrets/kubernetes.io/serviceaccount/tls.key",
-				Insecure: true,
-			}
-		}
+		// 使用默认的InCluster配置
+		// 证书路径由client-go自动处理
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
