@@ -21,73 +21,11 @@ spec:
       - name: agent
         image: registry.isigning.cn/base/logai-agent:1.0.0
         volumeMounts:
-        - name: token-volume
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-          readOnly: true
-        - name: ca-cert
-          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-          readOnly: true
         - name: varlog
           mountPath: /var/log/pods
           readOnly: true
       volumes:
-      - name: token-volume
-        projected:
-          sources:
-          - serviceAccountToken:
-              path: token
-              expirationSeconds: 3600
-      - name: ca-cert
-        secret:
-          secretName: "logai-agent-token"
-          items:
-          - key: ca.crt
-            path: ca.crt
       - name: varlog
         hostPath:
           path: /var/log/pods
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: logai-agent
-  annotations:
-    kubernetes.io/service-account.name: logai-agent
-    automountServiceAccountToken: true
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: logai-agent
-  annotations:
-    kubernetes.io/service-account.name: logai-agent
-    automountServiceAccountToken: true-role
-rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: [""]
-  resources: ["pods/log"]
-  verbs: ["get"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: logai-agent
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: logai-agent
-  annotations:
-    kubernetes.io/service-account.name: logai-agent
-    automountServiceAccountToken: true-role
-subjects:
-- kind: ServiceAccount
-  name: logai-agent
-  annotations:
-    kubernetes.io/service-account.name: logai-agent
-    automountServiceAccountToken: true
-  namespace: kube-system
+

@@ -35,10 +35,6 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 
 	if kubeconfig == "" {
 		config, err = rest.InClusterConfig()
-		if config != nil {
-			config.BearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-			config.TLSClientConfig.CAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-		}
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
