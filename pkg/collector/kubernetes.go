@@ -89,7 +89,7 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		logPath := fmt.Sprintf("%s/%s_%s_%s%s/0.log", k.logBasePath, pod.Namespace, pod.Name, string(pod.UID), container.Name)
+		logPath := fmt.Sprintf("%s/%s_%s_%s/%s/0.log", k.logBasePath, pod.Namespace, pod.Name, string(pod.UID), container.Name)
 		// 检查日志文件是否存在,不存在跳过
 
 		_, err := os.Stat(logPath)
