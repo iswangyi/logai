@@ -4,7 +4,7 @@ metadata:
   name: logai-agent
   annotations:
     kubernetes.io/service-account.name: logai-agent
-    automountServiceAccountToken: true
+    automountServiceAccountToken: "true"
   namespace: kube-system
 spec:
   selector:

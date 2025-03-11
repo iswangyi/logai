@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -46,6 +47,7 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Kubernetes collector initialized | namespace:%s log_path:%s", namespace, logBasePath)
 	LogData := make(chan LogMetaData, 10)
 	// 日志文件目录
 
@@ -61,12 +63,14 @@ func NewKubernetesCollector(kubeconfig string, logBasePath string, namespace str
 }
 
 func (k *KubernetesCollector) Start(ctx context.Context) error {
+	log.Printf("Starting pod informer | namespace:%s", k.namespace)
 	factory := informers.NewSharedInformerFactory(k.clientset, 30*time.Minute)
 	podInformer := factory.Core().V1().Pods().Informer()
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod := obj.(*corev1.Pod)
+			log.Printf("Processing new pod | namespace:%s pod:%s", pod.Namespace, pod.Name)
 			k.handlePodLogPaths(pod)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -91,6 +95,7 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 		_, err := os.Stat(logPath)
 		if err != nil {
 			if os.IsNotExist(err) {
+				log.Printf("Skipping missing log file | path:%s", logPath)
 				continue
 			}
 			fmt.Println("Error checking log file:", err)
@@ -104,6 +109,7 @@ func (k *KubernetesCollector) handlePodLogPaths(pod *corev1.Pod) {
 			LogPath:       logPath,
 		}
 
+		log.Printf("Sending log metadata to channel | pod:%s container:%s", pod.Name, container.Name)
 		k.LogCh <- meta
 	}
 }
